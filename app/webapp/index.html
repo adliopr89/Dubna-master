@@ -1,0 +1,935 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Мастера Дубны</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="seed.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font: 14px/1.45 "Segoe UI", Arial, sans-serif; color: #1d2129; background: #dfe3e8; min-height: 100vh; }
+
+  /* ── панель демо (вне «телефона») ─────────────────────────── */
+  #demobar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 16px; background: #263238; color: #fff; font-size: 13px;
+  }
+  #demobar b { font-size: 14px; }
+  #demobar select { font: inherit; padding: 4px 8px; border-radius: 6px; border: none; }
+  #demobar .lbl { opacity: .75; }
+  #demobar button { font: inherit; font-size: 12px; padding: 4px 10px; border: 1px solid #789; border-radius: 6px; background: transparent; color: #cfd8dc; cursor: pointer; }
+  #demobar button:hover { background: #37474f; }
+
+  /* ── телефон ─────────────────────────────────────────────── */
+  #stage { display: flex; justify-content: center; padding: 26px 10px 40px; }
+  #phone {
+    width: 392px; height: 780px; background: #f6f7f9; border-radius: 42px;
+    border: 10px solid #1c1f24; box-shadow: 0 24px 60px rgba(0,0,0,.35);
+    display: flex; flex-direction: column; overflow: hidden; position: relative;
+  }
+  #statusbar {
+    height: 30px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; font-size: 11px; color: #555; background: #fff; flex: none;
+  }
+  #appbar {
+    height: 52px; flex: none; display: flex; align-items: center; gap: 10px;
+    padding: 0 14px; background: #fff; border-bottom: 1px solid #e8eaee;
+  }
+  #appbar .who { font-weight: 700; font-size: 16px; }
+  #appbar .role { font-size: 11px; color: #fff; background: #2f6fed; padding: 2px 8px; border-radius: 10px; }
+  #appbar .role.m { background: #7b1fa2; }
+  #bell { margin-left: auto; position: relative; font-size: 19px; cursor: pointer; padding: 4px; }
+  #bell .n {
+    position: absolute; top: -2px; right: -4px; background: #e53935; color: #fff;
+    font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; padding: 0 4px;
+  }
+  #screen { flex: 1; overflow-y: auto; padding: 12px 12px 16px; }
+
+  #tabbar {
+    flex: none; height: 58px; display: flex; background: #fff; border-top: 1px solid #e8eaee;
+  }
+  #tabbar .t {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; font-size: 11px; color: #8a94a6; cursor: pointer; position: relative;
+  }
+  #tabbar .t .i { font-size: 19px; }
+  #tabbar .t.on { color: #2f6fed; font-weight: 600; }
+  #tabbar .t .badge {
+    position: absolute; top: 6px; right: 22px; background: #e53935; color: #fff;
+    font-size: 9px; font-weight: 700; min-width: 15px; height: 15px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── общие элементы ──────────────────────────────────────── */
+  .card { background: #fff; border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.07); }
+  .card.act { border: 1.5px solid #2f6fed; }
+  .card.dim { opacity: .55; }
+  h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .4px; color: #8a94a6; margin: 14px 2px 8px; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .grow { flex: 1; }
+  .mut { color: #8a94a6; font-size: 12px; }
+  .big { font-size: 16px; font-weight: 700; }
+  .chip { display: inline-block; font-size: 12px; padding: 3px 10px; border-radius: 12px; background: #eef2f7; margin: 2px 4px 2px 0; }
+  .chip.free { background: #e8f5e9; color: #2e7d32; }
+  .chip.busy { background: #fdeceb; color: #c0392b; }
+  .st { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+  .st.wait { background: #fff4d6; color: #9a7b00; }
+  .st.offered { background: #e3f0ff; color: #2f6fed; }
+  .st.ok { background: #e8f5e9; color: #2e7d32; }
+  .st.no, .st.cancel { background: #fdeceb; color: #c0392b; }
+  button { font: inherit; border: 1px solid #c9ccd1; border-radius: 9px; background: #fff; padding: 8px 14px; cursor: pointer; }
+  button:hover { background: #f0f3f7; }
+  button.pri { background: #2f6fed; border-color: #2f6fed; color: #fff; font-weight: 600; }
+  button.pri:hover { background: #265fd0; }
+  button.dan { color: #c0392b; border-color: #e5b8b2; }
+  button.sm { padding: 5px 10px; font-size: 12px; }
+  button:disabled { opacity: .45; cursor: default; }
+  .btnrow { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .btnrow button { flex: 1; min-width: 100px; }
+  input[type=text], input[type=tel], input[type=time], input[type=number], textarea, select {
+    font: inherit; width: 100%; padding: 9px 11px; border: 1px solid #c9ccd1; border-radius: 9px; background: #fff; color: #222;
+  }
+  textarea { resize: vertical; min-height: 70px; }
+  label.fld { display: block; font-size: 12px; color: #666; margin: 10px 0 4px; }
+  .days { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 6px; }
+  .day {
+    flex: none; min-width: 62px; text-align: center; padding: 8px 6px; border-radius: 12px;
+    background: #fff; border: 1.5px solid #e3e6eb; cursor: pointer; font-size: 12px;
+  }
+  .day .d { font-weight: 700; font-size: 14px; }
+  .day.on { border-color: #2f6fed; background: #eef4ff; }
+  .day.off { opacity: .4; }
+  .offercard { border: 1.5px solid #e3e6eb; border-radius: 12px; padding: 10px 12px; margin: 8px 0; display: flex; align-items: center; gap: 10px; }
+  .offercard.sel { border-color: #2e7d32; background: #f1f9f1; }
+  .timer { font-size: 12px; color: #c0392b; font-weight: 700; }
+  .back { border: none; background: none; font-size: 20px; padding: 0 6px 0 0; color: #2f6fed; }
+  .tog { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f2f5; }
+  .switch { position: relative; width: 44px; height: 24px; flex: none; }
+  .switch input { display: none; }
+  .switch i { position: absolute; inset: 0; background: #cdd3da; border-radius: 12px; transition: .15s; }
+  .switch i:before { content: ''; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: .15s; }
+  .switch input:checked + i { background: #2f6fed; }
+  .switch input:checked + i:before { left: 23px; }
+  .note { background: #fff8e1; border: 1px solid #ffe082; border-radius: 10px; padding: 8px 12px; font-size: 12px; margin-bottom: 10px; }
+  .empty { text-align: center; color: #9aa3b2; padding: 30px 10px; font-size: 13px; }
+  .hr { border: none; border-top: 1px solid #edf0f4; margin: 8px 0; }
+  .nitem { padding: 9px 4px; border-bottom: 1px solid #f0f2f5; font-size: 13px; }
+  .nitem .t { font-size: 11px; color: #9aa3b2; }
+  .nitem.un { font-weight: 600; }
+  #toast {
+    position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%);
+    background: #263238; color: #fff; font-size: 13px; padding: 10px 16px;
+    border-radius: 22px; opacity: 0; transition: opacity .25s; pointer-events: none;
+    max-width: 320px; text-align: center; z-index: 50;
+  }
+  #toast.on { opacity: .96; }
+
+  /* ── всплывающее окно внутри «телефона» ─────────────────── */
+  #pop {
+    position: absolute; inset: 0; z-index: 40; display: none;
+    background: rgba(20,25,35,.45); align-items: center; justify-content: center; padding: 24px;
+  }
+  #pop.on { display: flex; }
+  .popbox {
+    width: 100%; background: #fff; border-radius: 16px; padding: 16px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.3); display: flex; flex-direction: column; gap: 10px;
+  }
+  .popbox b { font-size: 15px; }
+
+  /* ── барабан выбора (как в Android) ─────────────────────── */
+  .drum {
+    display: flex; justify-content: center; gap: 28px; position: relative;
+    background: linear-gradient(#e8f0ff, #e8f0ff) center 60px / 100% 30px no-repeat;
+  }
+  .dcol {
+    height: 150px; width: 64px; overflow-y: auto; text-align: center;
+    scroll-snap-type: y mandatory; -ms-overflow-style: none; scrollbar-width: none;
+  }
+  .dcol::-webkit-scrollbar { display: none; }
+  .dcol:before, .dcol:after { content: ''; display: block; height: 60px; }
+  .dcol .opt { height: 30px; line-height: 30px; scroll-snap-align: center; color: #98a2b3; font-size: 16px; }
+  .dcol .opt.sel { color: #1d2129; font-weight: 700; }
+
+
+</style>
+</head>
+<body>
+
+<div id="demobar">
+  <b>Мастера Дубны · прототип</b>
+  <span class="lbl">Вы —</span>
+  <select id="who"></select>
+  <button id="reset">⟲ Сбросить демо</button>
+  <span class="lbl">данные: сегодня + 3 дня · состояние хранится в браузере</span>
+</div>
+
+<div id="stage">
+  <div id="phone">
+    <div id="statusbar"><span id="clock">9:41</span><span>Telegram · Mini App</span><span>▮▮▮</span></div>
+    <div id="appbar"></div>
+    <div id="screen"></div>
+    <div id="tabbar"></div>
+    <div id="pop"></div>
+    <div id="toast"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ── даты: сегодня + 3 дня ────────────────────────────────────
+const pad = n => String(n).padStart(2, '0');
+const dkey = off => { const d = new Date(); d.setDate(d.getDate() + off); return d.toISOString().slice(0, 10); };
+const DAYS = [...Array(10)].map((_, i) => ({ k: dkey(i), i }));
+const WD = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+const WDF = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
+const wdShort = k => WD[new Date(k + 'T12:00').getDay()];
+const wdFull = k => WDF[new Date(k + 'T12:00').getDay()];
+const MO = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+const dLbl = k => {
+  const i = DAYS.find(d => d.k === k)?.i;
+  const [y, m, d] = k.split('-').map(Number);
+  const s = `${d} ${MO[m - 1]}.`;
+  return i === 0 ? `Сегодня · ${s}` : i === 1 ? `Завтра · ${s}` : s;
+};
+const dShort = k => { const [y, m, d] = k.split('-').map(Number); return `${d}.${pad(m)}`; };
+const dMo = k => { const [y, m, d] = k.split('-').map(Number); return `${d} ${MO[m - 1]}.`; };
+const ts = (k, hm) => new Date(k + 'T' + hm + ':00').getTime();
+const hm = t => { const d = new Date(t); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+const kOf = t => new Date(t).toISOString().slice(0, 10);
+const now = () => Date.now();
+
+// ── данные ───────────────────────────────────────────────────
+// seed() общий для webapp и сервера — файл seed.js
+const seed = window.seedData;
+
+// режим хранения: 'api' — общее состояние через /api/state (локальный сервер),
+// 'static' — localStorage (GitHub Pages / file://)
+let MODE = 'static';
+let DB;
+
+async function loadDB() {
+  try {
+    const r = await fetch('/api/state', { cache: 'no-store' });
+    if (r.ok) { MODE = 'api'; return await r.json(); }
+  } catch {}
+  try { return JSON.parse(localStorage.getItem('dubna_proto') || 'null') || seed(); }
+  catch { return seed(); }
+}
+
+let saveT = null;
+function save() {
+  localStorage.setItem('dubna_proto', JSON.stringify(DB));
+  if (MODE !== 'api') return;
+  clearTimeout(saveT);
+  saveT = setTimeout(() => fetch('/api/state', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(DB),
+  }).catch(() => {}), 300);
+}
+
+let me = JSON.parse(localStorage.getItem('dubna_me') || 'null') || { role: 'client', id: 'c1' };
+let tab = 'home';
+let nav = [];
+
+const M = id => DB.masters.find(m => m.id === id);
+const C = id => DB.clients.find(c => c.id === id);
+const REQ = id => DB.reqs.find(r => r.id === id);
+const uid = p => p + (DB.seq++);
+const linkOf = (c, m) => DB.links.find(l => l.c === c && l.m === m);
+// личная метка мастера у клиента (своя у каждого клиента)
+const mLabel = l => l?.lbl || M(l?.m)?.spec || '';
+// дни, которые клиент реально может выбрать: рабочие, в горизонте, с окном
+const availDays = m => {
+  const out = [];
+  for (let i = 0; i < m.horizon; i++) {
+    const k = dkey(i);
+    if (m.days[k]?.on && free(m.id, k).length) out.push({ k, i });
+  }
+  return out.slice(0, 14);
+};
+const myLinks = c => DB.links.filter(l => l.c === c && l.st === 'ok');
+const reqOffers = r => DB.offs.filter(o => o.r === r.id);
+const chosen = r => DB.offs.find(o => o.r === r.id && o.st === 'ok');
+const isMe = id => me.id === id;
+const myName = () => me.role === 'client' ? C(me.id).name : M(me.id).name;
+
+const ST = { wait: 'ожидает ответа', offered: 'выбрать время', ok: 'подтверждена', no: 'отклонена', cancel: 'отменена' };
+const STC = { wait: 'wait', offered: 'offered', ok: 'ok', no: 'no', cancel: 'cancel' };
+
+function notify(to, text) {
+  if (!to) return;
+  DB.notes.unshift({ to, text, ts: now(), seen: false });
+  save();
+  if (to === me.id) toast(text);
+}
+
+// занятые интервалы мастера на дату (записи + брони)
+function busy(m, k) {
+  const rs = DB.reqs.filter(r => r.m === m && r.date === k && (r.st === 'ok' || r.st === 'offered'));
+  const out = [];
+  for (const r of rs)
+    for (const o of reqOffers(r))
+      if (o.st === 'ok' || o.st === 'res') out.push([o.start, o.start + o.dur * 60e3]);
+  return out.sort((a, b) => a[0] - b[0]);
+}
+// свободные интервалы в рабочих часах (минус записи, брони и перерывы)
+function free(m, k) {
+  const d = M(m).days[k];
+  if (!d?.on) return [];
+  let cur = ts(k, d.from), end = ts(k, d.to);
+  const out = [];
+  const ivs = [...busy(m, k), ...(d.brk || []).map(b => [ts(k, b.f), ts(k, b.t)])].sort((a, b) => a[0] - b[0]);
+  for (const [s, e] of ivs) {
+    if (s > cur) out.push([cur, Math.min(s, end)]);
+    cur = Math.max(cur, e);
+  }
+  if (cur < end) out.push([cur, end]);
+  return out.filter(([s, e]) => e - s >= M(m).step * 60e3);
+}
+const durS = m => m >= 60 ? Math.floor(m / 60) + ' ч' + (m % 60 ? ' ' + (m % 60) + ' мин' : '') : m + ' мин';
+
+// протухание броней + предупреждение за 5 минут
+function tick() {
+  let changed = false;
+  for (const o of DB.offs) {
+    if (o.st !== 'res') continue;
+    const left = o.until - now();
+    if (left <= 0) {
+      o.st = 'exp'; changed = true;
+      const r = REQ(o.r);
+      if (!reqOffers(r).some(x => x.st === 'res' || x.st === 'ok')) {
+        r.st = 'wait'; changed = true;
+        notify(r.m, `Бронь по заявке «${r.svc}» сгорела — время свободно, можно назначить снова`);
+        notify(r.c, `Время по заявке к ${M(r.m).name} освобождено — ждём новое предложение мастера`);
+      }
+    } else if (left < 5 * 60e3 && !o.warned) {
+      o.warned = true; changed = true;
+      const r = REQ(o.r);
+      notify(r.c, `⏰ Бронь ${hm(o.start)} ${dShort(kOf(o.start))} сгорает через 5 минут — выберите время!`);
+    }
+  }
+  if (changed) save();
+}
+setInterval(() => { tick(); if (!/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) render(); }, 15000);
+
+// ── уведомления ──────────────────────────────────────────────
+const myNotes = () => DB.notes.filter(n => n.to === me.id);
+const unseen = () => myNotes().filter(n => !n.seen).length;
+
+function toast(t) {
+  const el = $('#toast');
+  el.textContent = t; el.classList.add('on');
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2600);
+}
+
+// ── модалка ──────────────────────────────────────────────────
+function openModal(title, inner, okText, onOk) {
+  const p = $('#pop');
+  p.innerHTML = `<div class="popbox"><b>${title}</b>${inner}
+    <div class="btnrow"><button class="pri" id="pop-ok">${okText}</button><button id="pop-x">Отмена</button></div></div>`;
+  p.classList.add('on');
+  $('#pop-ok').addEventListener('click', () => onOk());
+  $('#pop-x').addEventListener('click', closeModal);
+  p.addEventListener('click', e => { if (e.target === p) closeModal(); });
+}
+const closeModal = () => { $('#pop').classList.remove('on'); $('#pop').innerHTML = ''; };
+
+// ── каркас ───────────────────────────────────────────────────
+const CTABS = [['home', '📋', 'Записи'], ['masters', '💇', 'Мастера'], ['profile', '👤', 'Профиль']];
+const MTABS = [['home', '🏠', 'Главная'], ['reqs', '📥', 'Запросы'], ['books', '📋', 'Записи'], ['set', '⚙️', 'Настройки']];
+
+function render() {
+  tick();
+  // appbar
+  $('#appbar').innerHTML =
+    (nav.length ? `<button class="back" onclick="back()">←</button>` : '') +
+    `<span class="who">${esc(myName())}</span>` +
+    `<span id="bell" onclick="go('notes')">🔔${unseen() ? `<span class="n">${unseen()}</span>` : ''}</span>`;
+  // screen
+  const cur = nav[nav.length - 1];
+  $('#screen').innerHTML = cur ? SCREENS[cur.s](cur.p) : (me.role === 'client' ? CSCREEN[tab]() : MSCREEN[tab]());
+  $('#screen').scrollTop = 0;
+  // tabbar
+  const tabs = me.role === 'client' ? CTABS : MTABS;
+  const badge = t => (me.role === 'master' && t[0] === 'reqs')
+    ? DB.links.filter(l => l.m === me.id && l.st === 'wait').length + DB.reqs.filter(r => r.m === me.id && r.st === 'wait').length
+    : (me.role === 'client' && t[0] === 'home')
+      ? DB.reqs.filter(r => r.c === me.id && r.st === 'offered').length : 0;
+  $('#tabbar').innerHTML = tabs.map(t =>
+    `<div class="t ${!nav.length && tab === t[0] ? 'on' : ''}" onclick="goTab('${t[0]}')"><span class="i">${t[1]}</span>${t[2]}${badge(t) ? `<span class="badge">${badge(t)}</span>` : ''}</div>`
+  ).join('');
+}
+function goTab(t) { nav = []; tab = t; render(); }
+function go(s, p) { nav.push({ s, p }); render(); }
+function back() { nav.pop(); render(); }
+
+// ── КЛИЕНТ ───────────────────────────────────────────────────
+const CSCREEN = {
+  home() {
+    const mine = DB.reqs.filter(r => r.c === me.id);
+    const act = mine.filter(r => r.st === 'offered');
+    const fut = mine.filter(r => r.st === 'ok' && chosen(r)?.start > now()).sort((a, b) => chosen(a).start - chosen(b).start);
+    const wait = mine.filter(r => r.st === 'wait');
+    const past = mine.filter(r => r.st === 'ok' && chosen(r)?.start <= now() || ['no', 'cancel'].includes(r.st))
+      .sort((a, b) => (chosen(b)?.start || 0) - (chosen(a)?.start || 0));
+    const inner = r => {
+      const o = chosen(r), l = linkOf(me.id, r.m), m = M(r.m);
+      const when = o ? `${wdShort(kOf(o.start))}, ${dShort(kOf(o.start))} в ${hm(o.start)}`
+                     : `${wdShort(r.date)}, ${dShort(r.date)}`;
+      return `<div class="row"><b class="grow">${esc(m.name)}</b><span class="st ${STC[r.st]}">${ST[r.st]}</span></div>
+        <div class="mut">${esc(mLabel(l))} · ${when}</div>`;
+    };
+    const card = (r, dim) => `<div class="card${dim ? ' dim' : ''}" onclick="go('creq','${r.id}')">${inner(r)}</div>`;
+    return `
+      ${act.map(r => `
+        <div class="card act" onclick="go('creq','${r.id}')">
+          <div class="row"><b class="grow">🔔 Выберите время</b><span class="timer">${leftOf(r)}</span></div>
+          <div class="mut">${esc(M(r.m).name)} · ${wdShort(r.date)}, ${dShort(r.date)}</div>
+        </div>`).join('') || ''}
+      ${wait.map(r => `
+        <div class="card" onclick="go('creq','${r.id}')">
+          <div class="row"><b class="grow">${esc(M(r.m).name)}</b><span class="st wait">ожидает ответа</span></div>
+          <div class="mut">${esc(mLabel(linkOf(me.id, r.m)))} · ${wdShort(r.date)}, ${dShort(r.date)}</div>
+        </div>`).join('')}
+      <h3>Предстоящие записи</h3>
+      ${fut.map(r => card(r)).join('') || '<div class="empty">Записей нет — выберите мастера во вкладке «Мастера»</div>'}
+      ${past.length ? `<h3>История</h3>` + past.map(r => card(r, true)).join('') : ''}
+    `;
+  },
+  masters() {
+    const rows = DB.links.filter(l => l.c === me.id).map(l => {
+      const m = M(l.m);
+      return `<div class="card" ${l.st === 'ok' ? `onclick="editLabel('${l.id}')" title="Нажмите, чтобы задать свою метку"` : ''}><div class="row">
+        <div class="grow"><b>${esc(m.name)}</b><div class="mut">${esc(mLabel(l))} · код ${m.code}</div></div>
+        ${l.st === 'ok' ? `<button class="pri sm" onclick="event.stopPropagation();go('cbook','${m.id}')">Записаться</button>`
+          : l.st === 'wait' ? '<span class="st wait">ожидает</span>'
+          : '<span class="st no">отклонена</span>'}
+      </div></div>`;
+    }).join('');
+    return `
+      <h3>Мои мастера</h3>${rows || '<div class="empty">Пока ни одного мастера</div>'}
+      <h3>Добавить мастера</h3>
+      <div class="card">
+        <div class="mut" style="margin-bottom:8px">Вставьте ссылку от мастера или введите его код (4 цифры).</div>
+        <input type="text" id="addid" placeholder="t.me/bot?start=m1024 или 1024">
+        <div class="btnrow"><button class="pri" onclick="askAddMaster()">Отправить заявку</button></div>
+      </div>`;
+  },
+  profile() {
+    const c = C(me.id);
+    return `
+      <h3>Профиль</h3>
+      <div class="card">
+        <label class="fld">Имя</label><input type="text" id="pf-name" value="${esc(c.name)}" disabled>
+        <label class="fld">Телефон</label><input type="tel" id="pf-phone" value="${esc(c.phone)}" disabled>
+        <div class="btnrow"><button class="pri" id="pf-btn" onclick="editProfile(this)">Изменить</button></div>
+      </div>
+      <h3>Напоминания о записи</h3>
+      <div class="card">
+        ${[['r30', 'за 30 минут'], ['r60', 'за 1 час'], ['r1440', 'за 24 часа']].map(([k, l]) => `
+          <div class="tog"><span>${l}</span><label class="switch"><input type="checkbox" ${c.rem[k] ? 'checked' : ''} onchange="setRem('${k}',this.checked)"><i></i></label></div>`).join('')}
+        ${(c.rem.cust || []).map((r, i) => `
+          <div class="tog"><span>${remTxt(r)}</span><span class="row" style="gap:6px">
+            <label class="switch"><input type="checkbox" ${r.on !== false ? 'checked' : ''} onchange="setCustRem(${i},this.checked)"><i></i></label>
+            <button class="sm dan" onclick="delRem(${i})">✕</button></span></div>`).join('')}
+        <div class="tog" style="border:none"><span>Своё напоминание</span><button class="sm" onclick="addRem()">＋ создать</button></div>
+      </div>
+      <div class="mut" style="padding:4px 2px">Telegram: ${esc(c.tg)}</div>`;
+  },
+};
+
+// своя метка мастеру (только у этого клиента)
+function editLabel(lid) {
+  const l = DB.links.find(x => x.id === lid), m = M(l.m);
+  openModal('Ваша метка для «' + esc(m.name) + '»',
+    `<div class="mut">Видна только вам. По умолчанию — «${esc(m.spec)}».</div>
+     <input type="text" id="lb-v" value="${esc(l.lbl || m.spec)}" placeholder="например: Массажист">`,
+    'Сохранить', () => {
+      l.lbl = $('#lb-v').value.trim() || null;
+      save(); closeModal(); render(); toast('Метка сохранена');
+    });
+}
+function askAddMaster() {
+  const v = $('#addid').value.trim();
+  const code = (v.match(/m(\d{4})/i) || v.match(/^(\d{4})$/) || [])[1];
+  const m = DB.masters.find(x => x.code === code);
+  if (!m) { toast('Мастер с таким кодом не найден'); return; }
+  openModal('Заявка мастеру «' + esc(m.name) + '»',
+    `<div class="mut">Мастер увидит ваш комментарий вместе с заявкой.</div>
+     <textarea id="ad-msg" placeholder="Например: меня порекомендовала Ольга"></textarea>`,
+    'Отправить заявку', () => {
+      const ex = linkOf(me.id, m.id);
+      const msg = $('#ad-msg').value.trim();
+      if (ex) { ex.st = 'wait'; ex.msg = msg; }
+      else DB.links.push({ id: uid('l'), c: me.id, m: m.id, st: 'wait', msg });
+      save(); notify(m.id, `${myName()} хочет присоединиться к вам${msg ? `: «${msg}»` : ''}`);
+      closeModal(); render(); toast('Заявка отправлена мастеру ' + m.name);
+    });
+}
+function editProfile(btn) {
+  const editing = btn.dataset.ed === '1';
+  if (!editing) {
+    $('#pf-name').disabled = $('#pf-phone').disabled = false;
+    btn.textContent = 'Сохранить'; btn.dataset.ed = '1';
+    $('#pf-name').focus(); return;
+  }
+  const c = C(me.id);
+  c.name = $('#pf-name').value.trim() || c.name;
+  c.phone = $('#pf-phone').value.trim() || c.phone;
+  save(); toast('Сохранено'); render();
+}
+function setRem(k, v) { C(me.id).rem[k] = v; save(); }
+const remTxt = r => 'за ' + (r.h ? r.h + ' ч' + (r.m ? ' ' + r.m + ' мин' : '') : r.m + ' мин');
+function setCustRem(i, v) { C(me.id).rem.cust[i].on = v; save(); }
+function delRem(i) { C(me.id).rem.cust.splice(i, 1); save(); render(); }
+// барабан: часы + минуты до записи, напоминаний сколько угодно
+function addRem() {
+  const opts = n => [...Array(n + 1)].map((_, i) => `<div class="opt" data-v="${i}">${pad(i)}</div>`).join('');
+  openModal('Своё напоминание',
+    `<div class="drum"><div class="dcol" id="dr-h">${opts(48)}</div><div class="dcol" id="dr-m">${opts(59)}</div></div>
+     <div class="mut" style="text-align:center">часы · минуты до записи</div>`,
+    'Добавить', () => {
+      const h = +($('#dr-h .opt.sel')?.dataset.v || 0), m = +($('#dr-m .opt.sel')?.dataset.v || 0);
+      if (!h && !m) { toast('Укажите время'); return; }
+      const c = C(me.id); (c.rem.cust ||= []).push({ h, m, on: true });
+      save(); closeModal(); render(); toast('Напоминание добавлено');
+    });
+  for (const id of ['dr-h', 'dr-m']) {
+    const col = document.getElementById(id);
+    const mark = () => {
+      const i = Math.round(col.scrollTop / 30);
+      col.querySelectorAll('.opt').forEach(o => o.classList.toggle('sel', +o.dataset.v === i));
+    };
+    col.addEventListener('scroll', mark); mark();
+  }
+}
+const leftOf = r => {
+  const o = reqOffers(r).find(x => x.st === 'res');
+  if (!o) return '';
+  const s = Math.max(0, Math.round((o.until - now()) / 60000));
+  return s >= 60 ? `бронь: ${Math.floor(s / 60)} ч ${s % 60} мин` : `бронь: ${s} мин`;
+};
+
+// ── экраны поверх ────────────────────────────────────────────
+const SCREENS = {
+  // уведомления (общий)
+  notes() {
+    const list = myNotes();
+    for (const n of list) n.seen = true;
+    setTimeout(save, 0);
+    return `<h3>Уведомления</h3>
+      <div class="note">Каждое событие также приходит сообщением от бота в Telegram.</div>
+      <div class="card">${
+      list.map(n => `<div class="nitem ${n.seen ? '' : 'un'}">${esc(n.text)}<div class="t">${new Date(n.ts).toLocaleString('ru-RU')} · → в Telegram</div></div>`).join('')
+      || '<div class="empty">Пусто</div>'}</div>`;
+  },
+
+  // клиент: флоу записи
+  cbook(mid) {
+    const m = M(mid), l = linkOf(me.id, mid);
+    const p = nav[nav.length - 1].p2 || {};
+    const sel = p.date;
+    const avail = availDays(m);
+    const dayBtns = avail.map(d => `
+      <div class="day ${sel === d.k ? 'on' : ''}" onclick="pickDate('${d.k}')">
+        <div>${d.i === 0 ? 'Сегодня' : d.i === 1 ? 'Завтра' : wdShort(d.k)}</div>
+        <div class="d">${d.k.slice(8)}</div>
+      </div>`).join('');
+    const intervals = sel ? free(m.id, sel).map(([s, e]) => `<span class="chip free">${hm(s)} – ${hm(e)}</span>`).join('') : '';
+    return `
+      <div class="card"><div class="row"><b class="grow">${esc(m.name)}</b><span class="mut">${esc(mLabel(l))}</span></div></div>
+      <h3>Дата (видно на ${m.horizon} дн. вперёд)</h3>
+      <div class="days">${dayBtns || '<div class="empty">Нет доступных дней</div>'}</div>
+      ${sel ? `<h3>Свободно на ${dShort(sel)}</h3><div class="card">${intervals || '<span class="mut">нет свободного времени</span>'}</div>` : ''}
+      <label class="fld">Что нужно сделать (услуга, детали)</label>
+      <textarea id="bk-svc" placeholder="Например: стрижка и укладка, волосы длинные">${esc(p.svc || '')}</textarea>
+      <label class="fld">Желаемое время (комментарий мастеру)</label>
+      <input type="text" id="bk-wish" placeholder="например: после 15:00" value="${esc(p.wish || '')}">
+      <div class="btnrow"><button class="pri" ${sel ? '' : 'disabled'} onclick="sendReq('${mid}')">Отправить запрос</button></div>
+      <div class="mut" style="margin-top:8px">Мастер увидит запрос и сам назначит время — вы получите предложение с бронью.</div>`;
+  },
+
+  // клиент: карточка заявки/записи
+  creq(rid) {
+    const r = REQ(rid), m = M(r.m), o = chosen(r), l = linkOf(me.id, r.m);
+    const offs = reqOffers(r).filter(x => x.st === 'res');
+    return `
+      <div class="card">
+        <div class="row"><b class="grow">${esc(m.name)}</b><span class="st ${STC[r.st]}">${ST[r.st]}</span></div>
+        <div class="mut">${esc(mLabel(l))} · ${dLbl(r.date)}</div>
+        <hr class="hr"><div>${esc(r.svc)}</div>
+        ${r.wish ? `<div class="mut">Пожелание: «${esc(r.wish)}»</div>` : ''}
+        ${o ? `<hr class="hr"><b>${dLbl(kOf(o.start))} в ${hm(o.start)}</b><span class="mut"> · ${durS(o.dur)}</span>` : ''}
+      </div>
+      ${offs.length ? `<h3>Предложенное время <span class="timer">${leftOf(r)}</span></h3>` +
+        offs.map(x => `<div class="offercard"><div class="grow"><b>${hm(x.start)}</b> <span class="mut">${durS(x.dur)}</span></div>
+          <button class="pri sm" onclick="pickOffer('${x.id}')">Выбрать</button></div>`).join('') : ''}
+      ${['wait', 'offered', 'ok'].includes(r.st) ? `
+        <div class="btnrow"><button class="dan" onclick="cancelReq('${r.id}')">Отменить</button></div>
+        <div class="mut" style="margin-top:6px">Отмена — с комментарием мастеру${m.cancelH ? `, не позднее чем за ${m.cancelH} ч` : ''}.</div>` : ''}`;
+  },
+};
+
+function pickDate(k) {
+  const cur = nav[nav.length - 1];
+  cur.p2 = { ...(cur.p2 || {}), date: k, svc: $('#bk-svc')?.value, wish: $('#bk-wish')?.value };
+  render();
+}
+function sendReq(mid) {
+  const svc = $('#bk-svc').value.trim();
+  if (!svc) { toast('Опишите, что нужно сделать'); return; }
+  const cur = nav[nav.length - 1];
+  DB.reqs.push({ id: uid('r'), c: me.id, m: mid, date: cur.p2.date, svc, wish: $('#bk-wish').value.trim(), st: 'wait' });
+  save(); notify(mid, `Новый запрос от ${myName()} на ${dShort(cur.p2.date)}: «${svc}»`);
+  nav = []; tab = 'home'; render(); toast('Запрос отправлен мастеру');
+}
+function pickOffer(oid) {
+  const o = DB.offs.find(x => x.id === oid), r = REQ(o.r);
+  o.st = 'ok'; r.st = 'ok';
+  for (const x of reqOffers(r)) if (x.id !== oid && x.st === 'res') x.st = 'rel';
+  save(); notify(r.m, `${myName()} подтвердил запись: ${dLbl(kOf(o.start))} в ${hm(o.start)}`);
+  render(); toast('Запись подтверждена!');
+}
+function cancelReq(rid) {
+  const r = REQ(rid);
+  const c = prompt('Комментарий мастеру (причина отмены):');
+  if (c === null) return;
+  if (!c.trim()) { toast('Комментарий обязателен'); return; }
+  r.st = 'cancel';
+  for (const o of reqOffers(r)) if (o.st === 'res') o.st = 'rel';
+  save(); notify(r.m, `${myName()} отменил ${r.st === 'ok' ? 'запись' : 'заявку'} ${dShort(r.date)}: «${c.trim()}»`);
+  render();
+}
+
+// ── МАСТЕР ───────────────────────────────────────────────────
+const MSCREEN = {
+  home() {
+    const m = M(me.id);
+    const today = DB.reqs.filter(r => r.m === me.id && r.st === 'ok' && kOf(chosen(r)?.start || 0) === dkey(0));
+    // следующий рабочий день мастера (завтра или ближайший рабочий)
+    const nxtK = Object.keys(m.days).filter(k => m.days[k].on && k > dkey(0)).sort()[0];
+    const nxtList = nxtK ? DB.reqs.filter(r => r.m === me.id && r.st === 'ok' && kOf(chosen(r)?.start || 0) === nxtK)
+      .sort((a, b) => chosen(a).start - chosen(b).start) : [];
+    const pendLinks = DB.links.filter(l => l.m === me.id && l.st === 'wait');
+    const pendReqs = DB.reqs.filter(r => r.m === me.id && r.st === 'wait');
+    return `
+      <div class="card"><b>${esc(m.name)}</b><div class="mut">${esc(m.spec)} · код ${m.code} · ${esc(m.tz)}</div></div>
+      ${pendLinks.length || pendReqs.length ? '<h3>Требуют ответа</h3>' : ''}
+      ${pendLinks.map(l => `<div class="card act"><div class="row"><b class="grow">${esc(C(l.c).name)}</b>
+          <button class="pri sm" onclick="joinAns('${l.id}',1)">Принять</button>
+          <button class="sm" onclick="joinAns('${l.id}',0)">Отклонить</button></div>
+          <div class="mut">заявка на присоединение${l.msg ? ` · «${esc(l.msg)}»` : ''}</div></div>`).join('')}
+      ${pendReqs.map(r => `<div class="card" onclick="go('mreq','${r.id}')">
+          <div class="row"><b class="grow">${esc(C(r.c).name)}</b><span class="st wait">новый</span></div>
+          <div class="mut">${dLbl(r.date)} · ${esc(r.svc)}</div></div>`).join('')}
+      <h3>Записи на сегодня</h3>
+      ${today.map(r => bookCard(r)).join('') || '<div class="empty">Сегодня записей нет</div>'}
+      ${nxtK ? `<h3>Записи на ${nxtK === dkey(1) ? 'завтра' : wdFull(nxtK)} <span class="mut" style="text-transform:none;font-weight:400">· ${dMo(nxtK)}</span></h3>` +
+        (nxtList.map(bookCard).join('') || '<div class="empty">Записей нет</div>') : ''}`;
+  },
+  reqs() {
+    const pendLinks = DB.links.filter(l => l.m === me.id && l.st === 'wait');
+    const pendReqs = DB.reqs.filter(r => r.m === me.id && r.st === 'wait');
+    const active = DB.reqs.filter(r => r.m === me.id && r.st === 'offered');
+    return `
+      <h3>Присоединения</h3>
+      ${pendLinks.map(l => `<div class="card"><div class="row"><b class="grow">${esc(C(l.c).name)}</b>
+          <button class="pri sm" onclick="joinAns('${l.id}',1)">Принять</button>
+          <button class="sm" onclick="joinAns('${l.id}',0)">Отклонить</button></div>
+          ${l.msg ? `<div class="mut">«${esc(l.msg)}»</div>` : ''}</div>`).join('')
+        || '<div class="empty">Нет заявок</div>'}
+      <h3>Запросы на запись</h3>
+      ${pendReqs.map(r => `<div class="card act" onclick="go('mreq','${r.id}')">
+          <div class="row"><b class="grow">${esc(C(r.c).name)}</b><span class="st wait">ждёт назначения</span></div>
+          <div class="mut">${dLbl(r.date)} · ${esc(r.svc)}</div></div>`).join('') || ''}
+      ${active.map(r => `<div class="card" onclick="go('mreq','${r.id}')">
+          <div class="row"><b class="grow">${esc(C(r.c).name)}</b><span class="st offered">бронь · ${leftOf(r)}</span></div>
+          <div class="mut">${dLbl(r.date)} · ${esc(r.svc)}</div></div>`).join('')}
+      ${!pendReqs.length && !active.length ? '<div class="empty">Нет активных запросов</div>' : ''}`;
+  },
+  books() {
+    const m = M(me.id);
+    const bookDays = DB.reqs.filter(r => r.m === me.id && r.st === 'ok').map(r => kOf(chosen(r).start));
+    const keys = [...new Set([...Object.keys(m.days).filter(k => m.days[k].on), ...bookDays])]
+      .filter(k => k >= dkey(0)).sort();
+    return keys.map(k => {
+      const wd = m.days[k];
+      const list = DB.reqs.filter(r => r.m === me.id && r.st === 'ok' && kOf(chosen(r)?.start || 0) === k)
+        .sort((a, b) => chosen(a).start - chosen(b).start);
+      const fchips = wd?.on ? free(me.id, k).map(([s, e]) => `<span class="chip free">${hm(s)}–${hm(e)}</span>`).join('') : '';
+      return `<div class="row" style="align-items:baseline"><h3 class="grow" style="margin-right:6px;text-transform:none">${dLbl(k)}${wd?.on ? ` · ${wd.from}–${wd.to}` : ''}</h3>
+          ${wd?.on ? `<button class="sm" onclick="addBook('${k}')">＋ запись</button>` : ''}</div>` +
+        (fchips ? `<div style="margin:-2px 0 6px"><span class="mut">Свободно: </span>${fchips}</div>` : '') +
+        (list.map(bookCard).join('') || '<div class="empty" style="padding:10px">—</div>');
+    }).join('') +
+    `<div class="btnrow"><button class="dan" onclick="go('mcancel')">Отменить записи за период</button></div>`;
+  },
+  set() {
+    const m = M(me.id);
+    return `
+      <h3>Мой код для клиентов</h3>
+      <div class="card"><div class="row"><b class="grow" style="font-size:20px">${m.code}</b>
+        <button class="sm" onclick="copyLink('${m.code}')">Копировать ссылку</button></div>
+        <div class="mut">t.me/dubna_bot?start=m${m.code}</div></div>
+      <h3>Расписание по дням</h3>
+      ${Object.keys(m.days).filter(k => m.days[k].on).sort().map(k => { const w = m.days[k]; return `
+        <div class="card"><div class="tog" style="border:none;padding:0 0 6px"><b>${dLbl(k)}</b>
+          <button class="sm dan" onclick="delWorkDay('${k}')">✕</button></div>
+          <div class="row"><input type="time" value="${w.from}" onchange="setWD('${k}','from',this.value)">
+          <span class="mut">—</span><input type="time" value="${w.to}" onchange="setWD('${k}','to',this.value)"></div>
+          ${(w.brk || []).map((b, i) => `<div class="row" style="margin-top:6px">
+            <span class="mut" style="flex:none">перерыв</span>
+            <input type="time" value="${b.f}" onchange="setBrk('${k}',${i},'f',this.value)">
+            <span class="mut">—</span><input type="time" value="${b.t}" onchange="setBrk('${k}',${i},'t',this.value)">
+            <button class="sm dan" onclick="delBrk('${k}',${i})">✕</button></div>`).join('')}
+          <div class="btnrow" style="margin-top:8px"><button class="sm" onclick="addBreak('${k}')">＋ перерыв</button></div></div>`; }).join('')
+        || '<div class="empty">Рабочих дней нет — добавьте первый</div>'}
+      <div class="btnrow"><button class="pri" onclick="addWorkDay()">＋ Добавить день</button></div>
+      <h3>Прочие настройки</h3>
+      <div class="card">
+        <label class="fld">Клиент видит запись на … дней вперёд</label>
+        <input type="number" min="1" max="30" value="${m.horizon}" onchange="setNum('horizon',this.value)">
+        <label class="fld">Жизнь брони: часы · минуты</label>
+        <div class="row"><input type="number" min="0" max="72" value="${m.ttlH}" onchange="setNum('ttlH',this.value)"><input type="number" min="0" max="59" value="${m.ttlM}" onchange="setNum('ttlM',this.value)"></div>
+        <label class="fld">Шаг длительности услуг (мин)</label>
+        <input type="number" min="15" step="15" max="120" value="${m.step}" onchange="setNum('step',this.value)">
+        <label class="fld">Клиент может отменить не позднее чем за … часов (0 — без ограничений)</label>
+        <input type="number" min="0" max="72" value="${m.cancelH}" onchange="setNum('cancelH',this.value)">
+        <div class="mut" style="margin-top:8px">Часовой пояс: ${esc(m.tz)}</div>
+      </div>`;
+  },
+};
+
+Object.assign(SCREENS, {
+  // мастер: запрос клиента
+  mreq(rid) {
+    const r = REQ(rid), c = C(r.c), m = M(r.m);
+    const p = nav[nav.length - 1].p2 || { offs: [] };
+    const busyI = busy(m.id, r.date).map(([s, e]) => `<span class="chip busy">${hm(s)}–${hm(e)}</span>`).join(' ');
+    const freeI = free(m.id, r.date).map(([s, e]) => `<span class="chip free">${hm(s)}–${hm(e)}</span>`).join(' ');
+    const durs = []; for (let d = m.step; d <= 240; d += m.step) durs.push(d);
+    return `
+      <div class="card">
+        <div class="row"><b class="grow">${esc(c.name)}</b><button class="sm" onclick="toast('Открылся бы прямой чат в Telegram')">💬 Чат</button></div>
+        <div class="mut">${esc(c.phone)} · ${esc(c.tg)}</div>
+        <hr class="hr"><div>${esc(r.svc)}</div>
+        ${r.wish ? `<div class="mut">Желаемое время: «${esc(r.wish)}»</div>` : ''}
+        <div class="mut">${dLbl(r.date)} · статус: ${ST[r.st]}</div>
+      </div>
+      ${r.st === 'wait' ? `
+        <h3>Назначить время на ${dShort(r.date)}</h3>
+        <div class="card">
+          <div class="mut">Свободно: ${freeI || '—'}<br>Занято/бронь: ${busyI || '—'}</div>
+          <label class="fld">Начало</label><input type="time" id="as-t" value="${p.t || ''}">
+          <label class="fld">Длительность (шаг ${m.step} мин)</label>
+          <select id="as-d">${durs.map(d => `<option value="${d}" ${d === m.step * 2 ? 'selected' : ''}>${durS(d)}</option>`).join('')}</select>
+          <div class="btnrow"><button onclick="addOffer('${r.id}')">＋ Добавить вариант</button></div>
+          ${p.offs.map((o, i) => `<div class="offercard sel"><b class="grow">${o.t} · ${durS(+o.d)}</b>
+            <button class="sm" onclick="delOffer(${i})">✕</button></div>`).join('')}
+          <div class="btnrow">
+            <button class="pri" ${p.offs.length ? '' : 'disabled'} onclick="sendOffer('${r.id}')">Предложить клиенту (${p.offs.length})</button>
+            <button class="dan" onclick="rejectReq('${r.id}')">Отклонить</button>
+          </div>
+        </div>` : `
+        <h3>Предложенное время</h3>
+        ${reqOffers(r).map(o => `<div class="offercard ${o.st === 'ok' ? 'sel' : ''}">
+          <b class="grow">${hm(o.start)} · ${durS(o.dur)}</b>
+          <span class="mut">${{ res: 'бронь ' + leftOf(r), ok: 'выбрано', rel: 'освобождено', exp: 'сгорело' }[o.st]}</span></div>`).join('')}`}`;
+  },
+  // мастер: отмена за период
+  mcancel() {
+    const p = nav[nav.length - 1].p2 || {};
+    const aff = DB.reqs.filter(r => r.m === me.id && r.st === 'ok' && p.f && p.t &&
+      kOf(chosen(r).start) >= p.f && kOf(chosen(r).start) <= p.t);
+    const bookDays = DB.reqs.filter(r => r.m === me.id && r.st === 'ok').map(r => kOf(chosen(r).start));
+    const m = M(me.id);
+    const keys = [...new Set([...Object.keys(m.days).filter(k => m.days[k].on), ...bookDays])]
+      .filter(k => k >= dkey(0)).sort();
+    return `
+      <div class="card">
+        <label class="fld">С какого дня</label>
+        <select id="cx-f" onchange="cxRange()"><option value="">—</option>${keys.map(k => `<option value="${k}" ${p.f === k ? 'selected' : ''}>${dLbl(k)}</option>`).join('')}</select>
+        <label class="fld">По какой день (включительно)</label>
+        <select id="cx-t" onchange="cxRange()"><option value="">—</option>${keys.map(k => `<option value="${k}" ${p.t === k ? 'selected' : ''}>${dLbl(k)}</option>`).join('')}</select>
+        <label class="fld">Комментарий клиентам (обязательно)</label>
+        <textarea id="cx-msg" placeholder="Например: заболел, записи переносим">${esc(p.msg || '')}</textarea>
+      </div>
+      ${p.f && p.t ? `<h3>Будет отменено: ${aff.length}</h3>` + aff.map(bookCard).join('') : ''}
+      <div class="btnrow"><button class="dan" ${aff.length && (p.msg || '').trim() ? '' : 'disabled'} onclick="doCancelPeriod()">Отменить и уведомить всех</button></div>`;
+  },
+});
+
+const rname = r => r.man || C(r.c)?.name || 'Клиент';
+function bookCard(r) {
+  const o = chosen(r);
+  return `<div class="card" onclick="go('mbook','${r.id}')"><div class="row">
+    <b class="grow">${o ? hm(o.start) : ''} · ${esc(rname(r))}</b><span class="st ok">запись</span></div>
+    <div class="mut">${esc(r.svc)}${o ? ' · ' + durS(o.dur) : ''}</div></div>`;
+}
+SCREENS.mbook = rid => {
+  const r = REQ(rid), o = chosen(r), c = r.c ? C(r.c) : null;
+  return `<div class="card">
+    <div class="row"><b class="grow">${esc(rname(r))}</b>${c ? `<button class="sm" onclick="toast('Открылся бы прямой чат в Telegram')">💬 Чат</button>` : '<span class="mut">вне бота</span>'}</div>
+    ${c ? `<div class="mut">${esc(c.phone)} · ${esc(c.tg)}</div>` : ''}<hr class="hr">
+    <b>${o ? dLbl(kOf(o.start)) + ' в ' + hm(o.start) : dLbl(r.date)}</b><span class="mut"> · ${o ? durS(o.dur) : ''}</span>
+    <div class="mut">${esc(r.svc)}</div></div>
+    <div class="btnrow"><button class="dan" onclick="cancelOne('${r.id}')">Отменить запись</button></div>`;
+};
+
+// мастер: ручная запись (клиент записался не через бота)
+function addBook(k) {
+  const m = M(me.id), cls = DB.links.filter(l => l.m === me.id && l.st === 'ok');
+  const durs = []; for (let d = m.step; d <= 240; d += m.step) durs.push(d);
+  openModal('Добавить запись · ' + dLbl(k), `
+    <label class="fld">Клиент</label>
+    <select id="mb-c" onchange="$('#mb-n').style.display=this.value?'none':'block'">
+      ${cls.map(l => `<option value="${l.c}">${esc(C(l.c).name)}</option>`).join('')}
+      <option value="" ${cls.length ? '' : 'selected'}>— вручную (не через бота) —</option></select>
+    <input id="mb-n" placeholder="Имя клиента" style="display:${cls.length ? 'none' : 'block'}">
+    <label class="fld">Начало</label><input type="time" id="mb-t">
+    <label class="fld">Длительность (шаг ${m.step} мин)</label>
+    <select id="mb-d">${durs.map(d => `<option value="${d}">${durS(d)}</option>`).join('')}</select>
+    <label class="fld">Услуга / комментарий</label><input id="mb-s" placeholder="Например: стрижка">`,
+    'Сохранить', () => saveBook(k));
+}
+function saveBook(k) {
+  const m = M(me.id), cid = $('#mb-c').value, nm = $('#mb-n').value.trim();
+  const t = $('#mb-t').value, d = +$('#mb-d').value, svc = $('#mb-s').value.trim() || 'Запись';
+  if (!cid && !nm) { toast('Укажите имя клиента'); return; }
+  if (!t) { toast('Укажите время начала'); return; }
+  const s = ts(k, t), e = s + d * 60e3;
+  if (!free(m.id, k).some(([fs, fe]) => s >= fs && e <= fe)) { toast('Время вне свободного интервала'); return; }
+  const r = { id: uid('r'), c: cid || '', m: me.id, date: k, svc, wish: '', st: 'ok', man: cid ? '' : nm };
+  DB.reqs.push(r);
+  DB.offs.push({ id: uid('o'), r: r.id, start: s, dur: d, until: 0, st: 'ok' });
+  save();
+  if (cid) notify(cid, `${m.name} записал(а) вас: ${dLbl(k)} в ${t}, ${durS(d)}`);
+  closeModal(); render(); toast('Запись добавлена');
+}
+
+function joinAns(lid, ok) {
+  const l = DB.links.find(x => x.id === lid);
+  l.st = ok ? 'ok' : 'no'; save();
+  notify(l.c, ok ? `${myName()} принял вашу заявку — теперь можно записываться` : `${myName()} отклонил заявку`);
+  render();
+}
+function addOffer(rid) {
+  const cur = nav[nav.length - 1]; cur.p2 = cur.p2 || { offs: [] };
+  const t = $('#as-t').value, d = +$('#as-d').value, r = REQ(rid), m = M(r.m);
+  if (!t) { toast('Укажите время начала'); return; }
+  const s = ts(r.date, t), e = s + d * 60e3;
+  if (!free(m.id, r.date).some(([fs, fe]) => s >= fs && e <= fe)) { toast('Время вне свободного интервала'); return; }
+  cur.p2.offs.push({ t, d }); save(); render();
+}
+function delOffer(i) { nav[nav.length - 1].p2.offs.splice(i, 1); render(); }
+function sendOffer(rid) {
+  const r = REQ(rid), m = M(r.m), p = nav[nav.length - 1].p2;
+  const until = now() + (m.ttlH * 60 + m.ttlM) * 60e3;
+  for (const o of p.offs) DB.offs.push({ id: uid('o'), r: rid, start: ts(r.date, o.t), dur: +o.d, until, st: 'res' });
+  r.st = 'offered'; save();
+  notify(r.c, `${m.name} предложила время на ${dShort(r.date)} — выберите, бронь горит ${m.ttlH ? m.ttlH + ' ч' : ''} ${m.ttlM ? m.ttlM + ' мин' : ''}`);
+  back(); toast('Время предложено, слоты в брони');
+}
+function rejectReq(rid) {
+  const r = REQ(rid); r.st = 'no'; save();
+  notify(r.c, `${myName()} не смог принять заявку на ${dShort(r.date)}`);
+  back();
+}
+function cancelOne(rid) {
+  const r = REQ(rid), o = chosen(r);
+  const c = prompt('Комментарий клиенту (причина отмены):');
+  if (c === null) return;
+  r.st = 'cancel'; save();
+  notify(r.c, `${myName()} отменил запись ${dLbl(kOf(o.start))} в ${hm(o.start)}: «${c.trim() || 'без комментария'}»`);
+  back(); toast('Запись отменена, клиент уведомлён');
+}
+function cxRange() {
+  const cur = nav[nav.length - 1];
+  cur.p2 = { f: $('#cx-f').value, t: $('#cx-t').value, msg: $('#cx-msg').value };
+  render();
+}
+function doCancelPeriod() {
+  const p = nav[nav.length - 1].p2;
+  const aff = DB.reqs.filter(r => r.m === me.id && r.st === 'ok' && kOf(chosen(r).start) >= p.f && kOf(chosen(r).start) <= p.t);
+  for (const r of aff) {
+    r.st = 'cancel';
+    notify(r.c, `${myName()} отменил записи ${dShort(p.f)}–${dShort(p.t)}: «${p.msg.trim()}» (ваша: ${dShort(kOf(chosen(r).start))} ${hm(chosen(r).start)})`);
+  }
+  save(); back(); toast(`Отменено записей: ${aff.length}, клиенты уведомлены`);
+}
+function addWorkDay() {
+  const m = M(me.id);
+  openModal('Добавить рабочий день',
+    `<label class="fld">Дата</label><input type="date" id="wd-d" min="${dkey(0)}">
+     <label class="fld">Работаю</label>
+     <div class="row"><input type="time" id="wd-f" value="10:00"><span class="mut">—</span><input type="time" id="wd-t" value="18:00"></div>`,
+    'Добавить', () => {
+      const k = $('#wd-d').value, f = $('#wd-f').value, t = $('#wd-t').value;
+      if (!k) { toast('Выберите дату'); return; }
+      if (f >= t) { toast('Начало должно быть раньше конца'); return; }
+      m.days[k] = { on: true, from: f, to: t, brk: [] };
+      save(); closeModal(); render(); toast('День добавлен: ' + dLbl(k));
+    });
+}
+function delWorkDay(k) { const m = M(me.id); m.days[k].on = false; save(); render(); }
+function setWD(k, f, v) { M(me.id).days[k][f] = v; save(); }
+function addBreak(k) { const d = M(me.id).days[k]; (d.brk ||= []).push({ f: '12:00', t: '13:00' }); save(); render(); }
+function setBrk(k, i, f, v) { M(me.id).days[k].brk[i][f] = v; save(); }
+function delBrk(k, i) { M(me.id).days[k].brk.splice(i, 1); save(); render(); }
+function setNum(f, v) { M(me.id)[f] = Math.max(0, +v || 0); save(); }
+function copyLink(code) { navigator.clipboard?.writeText(`t.me/dubna_bot?start=m${code}`); toast('Ссылка скопирована — отправьте клиенту'); }
+
+// ── переключатель «кем я являюсь» ────────────────────────────
+function fillWho() {
+  const s = $('#who');
+  s.innerHTML =
+    `<optgroup label="Клиенты">${DB.clients.map(c => `<option value="c:${c.id}" ${me.role === 'client' && me.id === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>` +
+    `<optgroup label="Мастера">${DB.masters.map(m => `<option value="m:${m.id}" ${me.role === 'master' && me.id === m.id ? 'selected' : ''}>${esc(m.name)} · ${esc(m.spec)}</option>`).join('')}</optgroup>`;
+}
+$('#who').addEventListener('change', e => {
+  const [r, id] = e.target.value.split(':');
+  me = { role: r === 'm' ? 'master' : 'client', id };
+  localStorage.setItem('dubna_me', JSON.stringify(me));
+  nav = []; tab = 'home'; render();
+});
+$('#reset').addEventListener('click', async () => {
+  if (!confirm('Сбросить все данные?')) return;
+  localStorage.removeItem('dubna_proto'); DB = seed(); save();
+  if (MODE === 'api') await fetch('/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(DB) }).catch(() => {});
+  nav = []; tab = 'home'; render();
+});
+
+setInterval(() => { $('#clock').textContent = hm(now()); }, 10000);
+
+(async () => {
+  try { Telegram.WebApp.ready(); Telegram.WebApp.expand(); } catch {}
+  DB = await loadDB();
+  // роль по Telegram-пользователю (если открыто внутри ТГ)
+  const u = Telegram?.WebApp?.initDataUnsafe?.user;
+  if (u) {
+    const uname = '@' + (u.username || '');
+    const mm = DB.masters.find(m => m.tgId === u.id || (uname !== '@' && m.tg === uname));
+    const cc = DB.clients.find(c => c.tgId === u.id || (uname !== '@' && c.tg === uname));
+    if (mm) me = { role: 'master', id: mm.id };
+    else if (cc) me = { role: 'client', id: cc.id };
+  }
+  // pull общего состояния в API-режиме (другие персонажи/бот)
+  setInterval(async () => {
+    if (MODE !== 'api' || saveT) return;
+    try {
+      const r = await fetch('/api/state', { cache: 'no-store' });
+      if (!r.ok) return;
+      const next = await r.json();
+      if (JSON.stringify(next) !== JSON.stringify(DB)) { DB = next; fillWho(); render(); }
+    } catch {}
+  }, 4000);
+  $('#clock').textContent = hm(now());
+  fillWho();
+  render();
+})();
+</script>
+</body>
+</html>
