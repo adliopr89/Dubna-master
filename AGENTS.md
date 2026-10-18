@@ -10,8 +10,11 @@
 - `app/webapp/` — Mini App, один `index.html` (ванильный JS) + `seed.js` (общий с сервером).
   Два режима: `/api/state` отвечает → общий стейт через сервер; нет → localStorage (статика/Pages).
 - `app/server/` — `node index.js`: статика + `GET/PUT /api/state` + бот (long polling, без зависимостей).
-- `docs/` (в **корне ветки** `mastera-dubny`) — статическая сборка для GitHub Pages, генерируется
+- `docs/` (внутри папки проекта) — статическая сборка для GitHub Pages, генерируется
   `node "Мастера Дубны/build-static.js"`, руками не править.
+- Живой репо Mini App: **github.com/adliopr89/Dubna-master** (публичный, Pages из `/docs`
+  ветки `main` → https://adliopr89.github.io/Dubna-master/). Код редактируется здесь
+  (Боты Pyrus), в Dubna-master выкладывается снапшот папки.
 - Токен бота — `../../Проекты/MasterBot.txt` или `data/bot.token` или env `MASTER_BOT_TOKEN`.
   **Никогда не коммитить.**
 

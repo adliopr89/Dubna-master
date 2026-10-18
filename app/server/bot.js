@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const WEBAPP_URL = process.env.WEBAPP_URL || 'https://adliopr89.github.io/pyrus-bot/';
+const WEBAPP_URL = process.env.WEBAPP_URL || 'https://adliopr89.github.io/Dubna-master/';
 
 function findToken() {
   if (process.env.MASTER_BOT_TOKEN) return process.env.MASTER_BOT_TOKEN.trim();
